@@ -1,4 +1,4 @@
-name: إنشاء ونشر فيديو يوتيوب يومي
+name: نشر Shorts يومي
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  create-and-upload:
+  shorts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,19 +16,15 @@ jobs:
         with:
           node-version: 20
 
-      - name: تثبيت الأدوات
-        run: |
+      - run: |
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg espeak-ng espeak-ng-data
           sudo ln -sf /usr/bin/espeak-ng /usr/bin/espeak
-          pip3 install edge-tts 2>&1
-          echo "edge-tts status: $(which edge-tts 2>&1)"
+          pip install gTTS 2>&1 | tail -1
 
-      - name: تثبيت الحزم
-        run: npm install
+      - run: npm install
 
-      - name: تشغيل الوكيل
-        run: node src/index.js 2>&1
+      - run: node src/shorts.js
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
