@@ -19,7 +19,8 @@ jobs:
       - name: تثبيت الأدوات
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q ffmpeg espeak espeak-data
+          sudo apt-get install -y -q ffmpeg espeak-ng espeak-ng-data
+          sudo ln -sf /usr/bin/espeak-ng /usr/bin/espeak
           echo "espeak test: $(echo 'مرحبا' | espeak -v arabic -w /tmp/test.wav 2>&1 && echo OK || echo FAIL)"
 
       - name: تثبيت الحزم
