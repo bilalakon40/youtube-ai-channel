@@ -21,8 +21,8 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q ffmpeg espeak-ng espeak-ng-data
           sudo ln -sf /usr/bin/espeak-ng /usr/bin/espeak
-          pip install edge-tts 2>&1 | tail -1
-          echo "edge-tts: $(edge-tts --list-voices 2>&1 | grep -i arabic | head -1)"
+          pip3 install edge-tts 2>&1
+          echo "edge-tts status: $(which edge-tts 2>&1)"
 
       - name: تثبيت الحزم
         run: npm install
