@@ -1,0 +1,14 @@
+{
+  "name": "youtube-ai-channel",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "node scripts/auth.js",
+    "generate": "node src/index.js"
+  },
+  "dependencies": {
+    "gtts": "^0.2.2",
+    "googleapis": "^144.0.0",
+    "sharp": "^0.33.0"
+  }
+}
