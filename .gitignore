@@ -1,6 +1,7 @@
 node_modules/
 .env
 *.log
-videos/
-audio/
-temp/
+output/
+scripts/*.json
+client_secret.json
+refresh_token.json
