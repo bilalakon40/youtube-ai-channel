@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  create-and-upload:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,20 +26,9 @@ jobs:
       - name: تثبيت الحزم
         run: npm install
 
-      - name: اختبار Groq API
-        run: |
-          node -e "
-          fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method:'POST',
-            headers:{'Content-Type':'application/json', Authorization:'Bearer ${{ secrets.GROQ_API_KEY }}'},
-            body:JSON.stringify({model:'llama-3.3-70b-versatile', messages:[{role:'user', content:'قل مرحبا'}], max_tokens:10})
-          }).then(r=>r.json()).then(d=>console.log('✅ Groq:', d.choices[0].message.content)).catch(e=>console.error('❌ Groq:', e.message))
-          "
-
-      - name: إنشاء السكريبت فقط
-        run: node -e "
-          const {generateScript} = require('./src/script');
-          generateScript().then(s=>console.log('✅ Script done')).catch(e=>{console.error('❌',e.message);process.exit(1)})
-          "
+      - name: تشغيل الوكيل
+        run: node src/index.js
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}

@@ -65,7 +65,7 @@ async function generateScript() {
     .replace(/\(.*?\)/g, "")
     .replace(/\*+/g, "")
     .replace(/#+/g, "")
-    .replace(/العنوان.*?\n/g, "")
+    .replace(/.*?(العنوان|عنوان)[:\s]*.*?\n/g, "")
     .trim();
 
   const filename = `script-${Date.now()}.json`;
