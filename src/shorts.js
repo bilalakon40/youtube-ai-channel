@@ -43,9 +43,34 @@ async function generateScript() {
     .replace(/^["'\s]+/, "").replace(/["'\s]+$/, "")
     .trim();
 
-  const hook = script.split(/[.\n!؟]/)[0] || script.substring(0, 60);
-  console.log(`📄 السكريبت: ${script.substring(0, 80)}...`);
-  return { script, hook };
+    // Extract a compelling hook - first sentence or a question/statement that creates curiosity
+    const sentences = script.split(/[.!؟\n]+/).filter(s => s.trim().length > 10);
+    let hook = "";
+    if (sentences.length > 0) {
+      // Prefer sentences that start with question words or create curiosity
+      const questionStarters = sentences.filter(s => 
+        /^(لماذا|كيف|ما|متى|من|ألا|هل|تخيل|هل تعلم|سر|حقيقة|خطأ|طريقة|أفضل|أسرع|أسهل|اكتشفت|تجنب|احذر)/.test(s.trim())
+      );
+      if (questionStarters.length > 0) {
+        hook = questionStarters[0].trim();
+      } else {
+        // Or sentences with numbers, secrets, or strong statements
+        const strongSentences = sentences.filter(s => 
+          /\d+|\$|سر|حقيقة|خطأ|طريقة|أفضل|أسرع|أسهل|اكتشفت|تجنب|احذر|لم تعرف/.test(s)
+        );
+        if (strongSentences.length > 0) {
+          hook = strongSentences[0].trim();
+        } else {
+          hook = sentences[0].trim();
+        }
+      }
+    }
+    if (!hook || hook.length < 15) {
+      hook = script.substring(0, Math.min(80, script.length));
+    }
+    console.log(`📄 السكريبت: ${script.substring(0, 80)}...`);
+    console.log(`🎣 هوك: ${hook}`);
+    return { script, hook };
 }
 
 function textToSpeech(text) {
@@ -155,8 +180,27 @@ function escapeFf(t) {
   return t.replace(/'/g, "’").replace(/:/g, "\\:").replace(/[{}\\]/g, "").replace(/%/g, "\\%");
 }
 
+function cleanupOldFiles() {
+  const now = Date.now();
+  const MAX_AGE_HOURS = 24; // Delete files older than 24 hours
+  try {
+    const files = fs.readdirSync(OUTPUT_DIR);
+    for (const file of files) {
+      const filePath = path.join(OUTPUT_DIR, file);
+      const stats = fs.statSync(filePath);
+      if (stats.isFile() && (now - stats.mtimeMs) > (MAX_AGE_HOURS * 3600 * 1000)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ حذف ملف قديم: ${file}`);
+      }
+    }
+  } catch (err) {
+    console.warn("تعذر تنظيف الملفات القديمة:", err.message);
+  }
+}
+
 async function run() {
   console.log("🎥 وكيل Shorts احترافي يعمل...");
+  cleanupOldFiles();
   if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   const { script, hook } = await generateScript();
@@ -177,20 +221,24 @@ async function run() {
   const o = new google.auth.OAuth2(c.client_id, c.client_secret, c.redirect_uris[0]);
   o.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
-  const tags = ["shorts", "معلومة", "تطوير الذات", "نصائح", "تعلم", "arabic shorts", "shorts عربي"];
-  const r = await google.youtube({ version: "v3", auth: o }).videos.insert({
-    part: ["snippet", "status"],
-    requestBody: {
-      snippet: {
-        title: hook.substring(0, 90),
-        description: `${hook}\n\n📌 مقتطفات:\n${sentences.map(s => "• " + s).join("\n")}\n\n🔔 اشترك ليصلك كل جديد\n\n#Shorts #معلومة #تطوير_الذات #arabic #shorts #نصائح`,
-        tags,
-        categoryId: "22",
+    // Generate relevant hashtags based on topic and content
+    const baseTags = ["shorts", "معلومة", "تطوير الذات", "نصائح", "تعلم", "arabic shorts", "shorts عربي"];
+    const topicTags = topic.toLowerCase().split(/\s+/).filter(t => t.length > 2).slice(0, 3);
+    const allTags = [...new Set([...baseTags, ...topicTags])].slice(0, 10); // Max 10 tags
+    
+    const r = await google.youtube({ version: "v3", auth: o }).videos.insert({
+      part: ["snippet", "status"],
+      requestBody: {
+        snippet: {
+          title: hook.substring(0, 90),
+          description: `${hook}\n\n📌 ما ستتعلمه في هذا الفيديو:\n${sentences.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n")}\n\n💬 هل جربت هذه النصيحة؟ شاركنا تجربتك في التعليقات!\n\n📥 احصل على محتوى حصري مجاني:\n👉 https://bybilal.gumroad.com\n\n🔔 لا تنسى الاشتراك وتفعيل الجرس لتصلكفيديوهاتنا اليومية المفيدة\n\n#${allTags.join(" #")}\n\n⏱️ مدة الفيديو: ${dur} ثانية\n📅 تاريخ النشر: ${new Date().toLocaleDateString('ar-SA')}`,
+          tags: allTags,
+          categoryId: "22",
+        },
+        status: { privacyStatus: "public", selfDeclaredMadeForKids: false, publishAt: null },
       },
-      status: { privacyStatus: "public", selfDeclaredMadeForKids: false, publishAt: null },
-    },
-    media: { body: fs.createReadStream(video) },
-  });
+      media: { body: fs.createReadStream(video) },
+    });
 
   console.log(`✅ رفع: https://youtube.com/shorts/${r.data.id}`);
 }
