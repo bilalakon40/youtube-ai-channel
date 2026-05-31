@@ -1,11 +1,13 @@
-name: نشر Shorts يومي
+name: نشر Shorts
 
 on:
-  push:
-    branches: [master]
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "0 */3 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: shorts-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shorts:
