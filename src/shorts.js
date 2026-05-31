@@ -1,101 +1,86 @@
-const { execSync, spawnSync } = require("child_process");
+const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const OUTPUT_DIR = path.join(__dirname, "..", "output");
+const OUT = path.join(__dirname, "..", "output");
 const API = "https://api.groq.com/openai/v1/chat/completions";
+const COLORS = {
+  primary: "#667eea", accent: "#764ba2", gold: "#FFD700",
+  bg1: "#0f0c29", bg2: "#302b63", bg3: "#24243e",
+  text: "#FFFFFF", shadow: "#00000080", highlight: "#FF6B6B",
+};
+const FONT = "Noto-Sans-Arabic";
 
 function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 
-async function generateScript() {
-  const topics = [
-    "حقيقة علمية مذهلة", "نصيحة ذهبية لتطوير الذات", "قصة نجاح ملهمة",
-    "معلومة غريبة وعجيبة", "سر من أسرار النجاح", "عادة يومية تغير حياتك",
-    "خطأ شائع في العمل الحر", "تقنية حديثة في AI", "طريقة لزيادة الإنتاجية",
-    "درس من حياة العظماء",
-  ];
-  const topic = pick(topics);
-  console.log(`📝 كتابة: ${topic}`);
-
+async function groqChat(prompt, system, maxTok = 1000) {
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: "أنت كاتب محتوى يوتيوب شورت محترف. تكتب بالعربية." },
-        { role: "user", content: `اكتب سكريبت شورت لمدة 55 ثانية عن: ${topic}
-
-المطلوب:
-- افتتاحية قوية (أول 5 ثواني)
-- 5-7 جمل (80-100 كلمة)
-- خاتمة: "إذا أعجبك الفيديو لا تنسى الإعجاب والاشتراك 🔔"
-- استخدم أسلوب مشوق وسهل
-
-السكريبت فقط: ` }
-      ],
-    }),
+    body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: system }, { role: "user", content: prompt }], max_tokens: maxTok, temperature: 0.8 }),
   });
-
+  if (!res.ok) throw new Error(`Groq ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  let script = data.choices[0].message.content
-    .replace(/\*+/g, "").replace(/#+/g, "")
-    .replace(/^["'\s]+/, "").replace(/["'\s]+$/, "")
-    .trim();
+  if (!data.choices?.[0]?.message) throw new Error("No response from Groq");
+  return data.choices[0].message.content.replace(/\*+|#+/g, "").replace(/^["'\s]+|["'\s]+$/g, "").trim();
+}
 
-    // Extract a compelling hook - first sentence or a question/statement that creates curiosity
-    const sentences = script.split(/[.!؟\n]+/).filter(s => s.trim().length > 10);
-    let hook = "";
-    if (sentences.length > 0) {
-      // Prefer sentences that start with question words or create curiosity
-      const questionStarters = sentences.filter(s => 
-        /^(لماذا|كيف|ما|متى|من|ألا|هل|تخيل|هل تعلم|سر|حقيقة|خطأ|طريقة|أفضل|أسرع|أسهل|اكتشفت|تجنب|احذر)/.test(s.trim())
-      );
-      if (questionStarters.length > 0) {
-        hook = questionStarters[0].trim();
-      } else {
-        // Or sentences with numbers, secrets, or strong statements
-        const strongSentences = sentences.filter(s => 
-          /\d+|\$|سر|حقيقة|خطأ|طريقة|أفضل|أسرع|أسهل|اكتشفت|تجنب|احذر|لم تعرف/.test(s)
-        );
-        if (strongSentences.length > 0) {
-          hook = strongSentences[0].trim();
-        } else {
-          hook = sentences[0].trim();
-        }
-      }
-    }
-    if (!hook || hook.length < 15) {
-      hook = script.substring(0, Math.min(80, script.length));
-    }
-    console.log(`📄 السكريبت: ${script.substring(0, 80)}...`);
-    console.log(`🎣 هوك: ${hook}`);
-    return { script, hook };
+async function generateScript() {
+  const topics = [
+    { t: "حقيقة علمية مذهلة", h: "🌍" },
+    { t: "نصيحة ذهبية لتطوير الذات", h: "🧠" },
+    { t: "قصة نجاح ملهمة", h: "⭐" },
+    { t: "معلومة غريبة وعجيبة", h: "🤯" },
+    { t: "سر من أسرار النجاح", h: "🔑" },
+    { t: "عادة يومية تغير حياتك", h: "🔄" },
+    { t: "خطأ شائع في العمل الحر", h: "⚠️" },
+    { t: "تقنية حديثة في AI", h: "🤖" },
+    { t: "طريقة لزيادة الإنتاجية", h: "⚡" },
+    { t: "درس من حياة العظماء", h: "🏆" },
+    { t: "اختراع غيّر العالم", h: "💡" },
+    { t: "نصيحة مالية ذكية", h: "💰" },
+  ];
+  const topic = pick(topics);
+  console.log(`📝 الموضوع: ${topic.t}`);
+
+  const script = await groqChat(
+    `اكتب سكريبت شورت يوتيوب قوي وجذاب لمدة 50-55 ثانية عن: ${topic.t}
+
+القواعد الصارمة:
+- افتتاحية قوية جداً (أول 3-5 ثواني): سؤال صادم أو حقيقة مدهشة
+- 5-7 جمل قصيرة ومشوقة (70-90 كلمة)
+- كل جملة لا تزيد عن 12 كلمة — سهلة القراءة والفهم
+- استخدم أسلوب قصصي مشوق
+- الخاتمة: "شكراً للمتابعة. إذا أعجبك الفيديو لا تنسى الاشتراك 🔔"
+- لا تستخدم علامات "*" أو "#" أو علامات تنصيص
+
+السكريبت فقط (لا تعليقات):`,
+    "أنت كاتب محتوى يوتيوب شورت محترف. تكتب بالعربية الفصحى السهلة.",
+    600
+  );
+
+  const sentences = script.split(/[.!؟\n]+/).filter(s => s.trim().length > 8);
+  let hook = sentences.find(s => /^(لماذا|كيف|هل|ما|متى|من|ألا|تخيل|هل تعلم|سر|حقيقة|خطأ)/.test(s.trim()))
+    || sentences.find(s => /\d+/.test(s))
+    || sentences[0];
+  hook = (hook || script).substring(0, 70);
+
+  console.log(`📄 الطول: ${script.length} حرف, ${sentences.length} جملة`);
+  console.log(`🎣 الهوك: ${hook}`);
+  return { script, hook, sentences, topic: topic.t, emoji: topic.h };
 }
 
 function textToSpeech(text) {
-  console.log("🔊 صوت...");
-  const audioFile = path.join(OUTPUT_DIR, "audio.mp3");
-  const textFile = path.join(OUTPUT_DIR, "speech.txt");
+  console.log("🎙️ توليد الصوت...");
+  const audioFile = path.join(OUT, "audio.mp3");
+  const textFile = path.join(OUT, "speech.txt");
   fs.writeFileSync(textFile, text, "utf-8");
-
   try {
-    execSync(`gtts-cli -l ar -f "${textFile}" -o "${audioFile}"`, { stdio: "pipe", timeout: 30000 });
+    execSync(`gtts-cli -l ar -f "${textFile}" -o "${audioFile}"`, { stdio: "pipe", timeout: 60000 });
   } catch {
-    execSync(`espeak -v arabic -f "${textFile}" -w "${audioFile}"`, { stdio: "pipe", timeout: 30000 });
+    execSync(`espeak -v arabic -f "${textFile}" -w "${audioFile}"`, { stdio: "pipe", timeout: 60000 });
   }
   return audioFile;
-}
-
-function downloadBackground(p) {
-  console.log("🖼️ تحميل صورة خلفية...");
-  try {
-    execSync(`curl -s -L "https://picsum.photos/1080/1920" -o "${p}"`, { stdio: "pipe", timeout: 10000 });
-  } catch {}
-  if (!fs.existsSync(p) || fs.statSync(p).size < 100) {
-    const colors = ["1a237e", "4a148c", "004d40", "b71c1c", "0d47a1", "4e342e", "1b5e20", "e65100"];
-    execSync(`ffmpeg -y -f lavfi -i "color=c=#${pick(colors)}:s=1080x1920:d=1" -frames:v 1 "${p}"`, { stdio: "pipe", timeout: 5000 });
-  }
 }
 
 function getDuration(file) {
@@ -104,143 +89,189 @@ function getDuration(file) {
   } catch { return 30; }
 }
 
-function splitScript(script) {
-  const sentences = script.split(/[.!؟\n]/).map(s => s.trim()).filter(s => s.length > 5);
-  if (sentences.length === 0) sentences.push(script);
-  return sentences;
+function getSentenceTimings(dur, sentences) {
+  const per = dur / sentences.length;
+  return sentences.map((s, i) => ({
+    start: Math.round(i * per * 10) / 10,
+    end: Math.round((i + 1) * per * 10) / 10,
+    text: s.trim(),
+  }));
 }
 
-function getSentenceTimings(totalDur, sentences) {
-  const timings = [];
-  let perSentence = totalDur / sentences.length;
-  for (let i = 0; i < sentences.length; i++) {
-    timings.push({
-      start: Math.round(i * perSentence * 10) / 10,
-      end: Math.round((i + 1) * perSentence * 10) / 10,
-      text: sentences[i],
-    });
-  }
-  return timings;
+function escapeFf(t) {
+  return t.replace(/'/g, "’").replace(/:/g, "\\:").replace(/[{}\\]/g, "").replace(/%/g, "\\%").replace(/\[/g, "(").replace(/\]/g, ")");
+}
+
+function createGradientBg(outputPath) {
+  console.log("🎨 خلفية متدرجة...");
+  const c1 = pick(["#0f0c29", "#1a0024", "#0d1b2a", "#1b0000", "#000814", "#001219"]);
+  const c2 = pick(["#302b63", "#4a0072", "#1b3a4b", "#4a001a", "#001d3d", "#003049"]);
+  const c3 = pick(["#24243e", "#7b2d8e", "#2d6a4f", "#6b0018", "#003566", "#004756"]);
+  execSync(`ffmpeg -y -f lavfi -i "color=c=black:s=1080x1920:d=1,format=rgba,geq=r='${c1.slice(0,2)}X/W+${c2.slice(0,2)}*(1-X/W)':g='${c1.slice(2,4)}X/W+${c2.slice(2,4)}*(1-X/W)':b='${c1.slice(4,6)}X/W+${c2.slice(4,6)}*(1-X/W)'" -frames:v 1 "${outputPath}"`, { stdio: "pipe", timeout: 10000 });
 }
 
 function createMusic(duration) {
-  console.log("🎵 موسيقى خلفية...");
-  const musicFile = path.join(OUTPUT_DIR, "music.mp3");
+  console.log("🎵 موسيقى خلفية احترافية...");
+  const musicFile = path.join(OUT, "music.mp3");
 
-  const notes = [262, 330, 392, 523, 392, 330, 262, 440, 494, 523, 587, 523, 494, 440, 392, 330];
+  const chordProgressions = [
+    [262, 330, 392], [294, 370, 440], [330, 392, 494], [349, 440, 523],
+    [392, 494, 587], [440, 554, 659], [494, 587, 698], [523, 659, 784],
+  ];
+
   let filter = "";
-  for (let i = 0; i < Math.min(notes.length, Math.ceil(duration / 2)); i++) {
-    if (i > 0) filter += ",";
-    filter += `aevalsrc=sin(2*PI*${notes[i]}*t)*sin(2*PI*${notes[(i + 1) % notes.length]}*t):s=44100:d=2,volume=0.04`;
+  const notes = [];
+  const numChords = Math.max(4, Math.floor(duration / 4));
+  for (let i = 0; i < numChords; i++) {
+    const chord = chordProgressions[i % chordProgressions.length];
+    chord.forEach(freq => {
+      const vol = 0.03 + (Math.sin(i * 0.5) * 0.01);
+      if (notes.length > 0) filter += ",";
+      filter += `aevalsrc=sin(2*PI*${freq}*t)*${vol.toFixed(3)}:s=44100:d=3.5`;
+      notes.push(freq);
+    });
   }
-  filter += `,concat=n=${Math.min(notes.length, Math.ceil(duration / 2))}:v=0:a=1,atrim=0:${duration}`;
+  filter += `,concat=n=${notes.length}:v=0:a=1,atrim=0:${duration}`;
 
   execSync(`ffmpeg -y -f lavfi -i "${filter}" "${musicFile}"`, { stdio: "pipe", timeout: 30000 });
-  return musicFile;
+
+  // Add bass layer
+  const bassFile = path.join(OUT, "bass.mp3");
+  const bassFreq = pick([65, 73, 82, 98, 110, 130]);
+  execSync(`ffmpeg -y -f lavfi -i "aevalsrc=sin(2*PI*${bassFreq}*t)*0.06+sin(2*PI*${bassFreq * 2}*t)*0.02:s=44100:d=${duration}" "${bassFile}"`, { stdio: "pipe", timeout: 15000 });
+
+  const mixedFile = path.join(OUT, "music_mixed.mp3");
+  execSync(`ffmpeg -y -i "${musicFile}" -i "${bassFile}" -filter_complex "[0:a]volume=0.6[a];[1:a]volume=0.8[b];[a][b]amix=inputs=2:duration=first" -ac 1 -ar 44100 "${mixedFile}"`, { stdio: "pipe", timeout: 15000 });
+
+  return mixedFile;
 }
 
 function mixAudio(voiceFile, musicFile) {
   console.log("🔊 خلط صوت + موسيقى...");
-  const mixedFile = path.join(OUTPUT_DIR, "mixed.mp3");
-  execSync(`ffmpeg -y -i "${voiceFile}" -i "${musicFile}" -filter_complex "[0:a]volume=1.2[voice];[1:a]volume=0.1[music];[voice][music]amix=inputs=2:duration=first" -ac 1 -ar 44100 "${mixedFile}"`, { stdio: "pipe", timeout: 15000 });
+  const mixedFile = path.join(OUT, "mixed.mp3");
+  execSync(`ffmpeg -y -i "${voiceFile}" -i "${musicFile}" -filter_complex "[0:a]afftdn=nf=-20,volume=2.0[voice];[1:a]volume=0.12[music];[voice][music]amix=inputs=2:duration=first:weights=1.5 0.5" -ac 1 -ar 44100 "${mixedFile}"`, { stdio: "pipe", timeout: 15000 });
   return mixedFile;
 }
 
-function createVideo(audioFile, hook, sentences, timings) {
-  console.log("🎬 بناء الفيديو...");
-  const outputFile = path.join(OUTPUT_DIR, "shorts.mp4");
-  const bg = path.join(OUTPUT_DIR, "bg.jpg");
+function renderVideo(audioFile, data) {
+  console.log("🎬 بناء الفيديو الاحترافي...");
+  const outputFile = path.join(OUT, "shorts.mp4");
   const dur = getDuration(audioFile);
+  const { hook, sentences, timings, topic, emoji } = data;
 
-  downloadBackground(bg);
-  console.log(`⏱️ ${dur}ث, ${timings.length} جملة`);
+  const bg = path.join(OUT, "bg.png");
+  createGradientBg(bg);
 
-  let filters = `[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black@0.3`;
+  // Zoom animation
+  let f = `[0:v]scale=1280:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='1+0.005*t':d=${dur * 25}:s=1080x1920,fps=25`;
 
-  const hookText = escapeFf(hook.substring(0, 45));
-  filters += `,drawtext=text='${hookText}':fontcolor=white:fontsize=48:font=Arial:x=(w-text_w)/2:y=350:shadowcolor=black:shadowx=2:shadowy=2:enable='between(t,0,${Math.min(4, dur)})':alpha='if(lt(t,0.5),t/0.5,if(gt(t,3.5),(4.5-t)/1.5,1))'`;
+  // Semi-transparent overlay for text readability
+  f += `,drawbox=x=0:y=0:w=1080:h=360:color=black@0.4:t=fill:enable='between(t,0,4)'`;
+  f += `,drawbox=x=0:y=1200:w=1080:h=500:color=black@0.3:t=fill`;
 
+  // TOPIC INTRO CARD (0-4s)
+  const topicSafe = escapeFf(topic);
+  f += `,drawtext=text='${emoji}':fontcolor=white:fontsize=80:x=(w-text_w)/2:y=200:enable='between(t,0,4)':alpha='if(lt(t,0.5),t/0.5,if(gt(t,3.5),(4-t)/0.5,1))'`;
+  f += `,drawtext=text='${topicSafe}':fontcolor=white:fontsize=52:font=Arial:x=(w-text_w)/2:y=300:enable='between(t,0,4)':shadowcolor=black@0.8:shadowx=3:shadowy=3:alpha='if(lt(t,0.5),t/0.5,if(gt(t,3.5),(4-t)/0.5,1))'`;
+  f += `,drawtext=text='شاهد حتى النهاية 😱':fontcolor=${COLORS.gold}:fontsize=28:font=Arial:x=(w-text_w)/2:y=380:enable='between(t,0,4)':alpha='if(lt(t,1),0,if(lt(t,2),(t-1)/0.5,if(gt(t,3.5),(4-t)/0.5,1)))'`;
+
+  // HOOK - Large bold text (4-8s)
+  const hookSafe = escapeFf(hook);
+  f += `,drawtext=text='${hookSafe}':fontcolor=white:fontsize=44:font=Arial:x=(w-text_w)/2:y=550:enable='between(t,4,${Math.min(8, dur)})':shadowcolor=black@0.9:shadowx=3:shadowy=3:alpha='if(lt(t,4.3),(t-4)/0.3,if(gt(t,${Math.min(7.5, dur)}),(${Math.min(8, dur)}-t)/0.5,1))'`;
+
+  // CAPTIONS - Sentence by sentence
   for (let i = 0; i < timings.length; i++) {
     const t = timings[i];
-    const line = escapeFf(t.text.substring(0, 40));
-    filters += `,drawtext=text='${line}':fontcolor=white:fontsize=34:font=Arial:x=(w-text_w)/2:y=1350:shadowcolor=black:shadowx=2:shadowy=2:enable='between(t,${t.start.toFixed(1)},${t.end.toFixed(1)})':alpha='if(lt(t-${t.start.toFixed(1)},0.3),(t-${t.start.toFixed(1)})/0.3,if(gt(t,${(t.end - 0.3).toFixed(1)}),(${t.end.toFixed(1)}-t)/0.3,1))'`;
+    const s = escapeFf(t.text.substring(0, 50));
+    const start = t.start;
+    const end = t.end;
+    const fadeTime = 0.25;
+
+    // Main caption text
+    f += `,drawtext=text='${s}':fontcolor=white:fontsize=36:font=Arial:x=(w-text_w)/2:y=1300:shadowcolor=black@0.9:shadowx=2:shadowy=2:enable='between(t,${start.toFixed(1)},${end.toFixed(1)})':alpha='if(lt(t,${(start + fadeTime).toFixed(1)}),(t-${start.toFixed(1)})/${fadeTime.toFixed(2)},if(gt(t,${(end - fadeTime).toFixed(1)}),(${end.toFixed(1)}-t)/${fadeTime.toFixed(2)},1))'`;
+
+    // Sentence counter dots at bottom
+    const dotX = 540 - (timings.length * 10) + (i * 20);
+    f += `,drawtext=text='●':fontcolor=${i === 0 ? COLORS.primary : "#666666"}:fontsize=16:x=${dotX}:y=1850:enable='between(t,${start.toFixed(1)},${end.toFixed(1)})'`;
   }
 
-  filters += `,drawtext=text='اشترك ₰ ':fontcolor=#FFD700:fontsize=36:font=Arial:x=(w-text_w)/2:y=1550:enable='gte(t,${Math.max(0, dur - 5)})':alpha='if(lt(t,${Math.max(0, dur - 5)}+0.5),0,(t-${Math.max(0, dur - 5)}-0.5)/1.5)'`;
+  // KEYWORD HIGHLIGHTS - Overlay extra emphasis words
+  const keywords = data.sentences.filter(s => s.length < 25).slice(0, 3);
+  keywords.forEach((kw, i) => {
+    const idx = data.sentences.indexOf(kw);
+    if (idx >= 0 && idx < timings.length) {
+      const t = timings[idx];
+      f += `,drawtext=text='${escapeFf(kw)}':fontcolor=${COLORS.highlight}:fontsize=40:font=Arial:borderw=2:bordercolor=white@0.5:x=(w-text_w)/2:y=1000:enable='between(t,${t.start.toFixed(1)},${(t.start + 1.5).toFixed(1)})':alpha='if(lt(t,${(t.start + 0.2).toFixed(1)}),(t-${t.start.toFixed(1)})/0.2,if(gt(t,${(t.start + 1.2).toFixed(1)}),(${(t.start + 1.5).toFixed(1)}-t)/0.3,1))'`;
+    }
+  });
 
-  filters += `,drawbox=x=0:y=1900:w=(${1080}/${dur})*t:h=6:color=#FF0000:enable='between(t,0,${dur})'`;
+  // SUBSCRIBE BUTTON (last 5 seconds)
+  const subStart = Math.max(0, dur - 5);
+  f += `,drawtext=text='🔔':fontcolor=${COLORS.gold}:fontsize=64:x=(w-text_w)/2:y=800:enable='gte(t,${subStart.toFixed(1)})':alpha='if(lt(t,${(subStart + 0.5).toFixed(1)}),t-${subStart.toFixed(1)},1)'`;
+  f += `,drawtext=text='اشترك ليصلك كل جديد':fontcolor=${COLORS.gold}:fontsize=38:font=Arial:x=(w-text_w)/2:y=880:enable='gte(t,${(subStart + 0.3).toFixed(1)})':shadowcolor=black@0.9:shadowx=3:shadowy=3:alpha='if(lt(t,${(subStart + 0.8).toFixed(1)}),(t-${(subStart + 0.3).toFixed(1)})/0.5,1)'`;
+  f += `,drawtext=text='تفعيل الجرس 🔔':fontcolor=white:fontsize=26:font=Arial:x=(w-text_w)/2:y=940:enable='gte(t,${(subStart + 1).toFixed(1)})':alpha='if(lt(t,${(subStart + 1.5).toFixed(1)}),(t-${(subStart + 1).toFixed(1)})/0.5,if(lt(t,${(subStart + 3).toFixed(1)}),1,if(lt(t,${(subStart + 4).toFixed(1)}),(${(subStart + 4).toFixed(1)}-t)/1,0)))'`;
 
-  execSync(`ffmpeg -y -loop 1 -i "${bg}" -i "${audioFile}" -filter_complex "${filters}" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k -pix_fmt yuv420p -shortest "${outputFile}"`, { stdio: "pipe", timeout: 180000 });
+  // PROGRESS BAR
+  const barW = 1080;
+  f += `,drawbox=x=0:y=1900:w=${barW}:h=4:color=#333333:t=fill`;
+  const progressW = Math.floor(barW / dur);
+  f += `,drawbox=x=0:y=1900:w=${progressW}*t:h=4:color=${COLORS.primary}:enable='between(t,0,${dur})'`;
 
-  console.log(`✅ الفيديو: ${outputFile}`);
+  // BRANDING - Small text at bottom
+  f += `,drawtext=text='AI Shorts':fontcolor=white@0.15:fontsize=14:font=Arial:x=20:y=1880:enable='between(t,0,${dur})'`;
+
+  console.log(`⏱️ ${dur}ث, ${timings.length} جملة`);
+  execSync(`ffmpeg -y -loop 1 -i "${bg}" -i "${audioFile}" -filter_complex "${f}" -c:v libx264 -preset fast -crf 22 -c:a aac -b:a 128k -pix_fmt yuv420p -shortest "${outputFile}"`, { stdio: "pipe", timeout: 180000 });
+  console.log(`✅ الفيديو جاهز: ${outputFile}`);
   return outputFile;
 }
 
-function escapeFf(t) {
-  return t.replace(/'/g, "’").replace(/:/g, "\\:").replace(/[{}\\]/g, "").replace(/%/g, "\\%");
-}
-
-function cleanupOldFiles() {
-  const now = Date.now();
-  const MAX_AGE_HOURS = 24; // Delete files older than 24 hours
-  try {
-    const files = fs.readdirSync(OUTPUT_DIR);
-    for (const file of files) {
-      const filePath = path.join(OUTPUT_DIR, file);
-      const stats = fs.statSync(filePath);
-      if (stats.isFile() && (now - stats.mtimeMs) > (MAX_AGE_HOURS * 3600 * 1000)) {
-        fs.unlinkSync(filePath);
-        console.log(`🗑️ حذف ملف قديم: ${file}`);
-      }
-    }
-  } catch (err) {
-    console.warn("تعذر تنظيف الملفات القديمة:", err.message);
-  }
-}
-
-async function run() {
-  console.log("🎥 وكيل Shorts احترافي يعمل...");
-  cleanupOldFiles();
-  if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-
-  const { script, hook } = await generateScript();
-  const voice = textToSpeech(script);
-  const dur = getDuration(voice);
-  console.log(`⏱️ المدة: ${dur} ثانية`);
-
-  const sentences = splitScript(script);
-  const timings = getSentenceTimings(dur, sentences);
-  console.log(`📝 ${sentences.length} جملة`);
-
-  const music = createMusic(dur);
-  const mixed = mixAudio(voice, music);
-  const video = createVideo(mixed, hook, sentences, timings);
-
+async function uploadToYouTube(videoPath, data, dur) {
+  console.log("📤 رفع إلى يوتيوب...");
   const { google } = require("googleapis");
   const c = JSON.parse(process.env.GOOGLE_CLIENT_SECRET).installed;
   const o = new google.auth.OAuth2(c.client_id, c.client_secret, c.redirect_uris[0]);
   o.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
-    // Generate relevant hashtags based on topic and content
-    const baseTags = ["shorts", "معلومة", "تطوير الذات", "نصائح", "تعلم", "arabic shorts", "shorts عربي"];
-    const topicTags = topic.toLowerCase().split(/\s+/).filter(t => t.length > 2).slice(0, 3);
-    const allTags = [...new Set([...baseTags, ...topicTags])].slice(0, 10); // Max 10 tags
-    
-    const r = await google.youtube({ version: "v3", auth: o }).videos.insert({
-      part: ["snippet", "status"],
-      requestBody: {
-        snippet: {
-          title: hook.substring(0, 90),
-          description: `${hook}\n\n📌 ما ستتعلمه في هذا الفيديو:\n${sentences.map((s, i) => `${i + 1}. ${s.trim()}`).join("\n")}\n\n💬 هل جربت هذه النصيحة؟ شاركنا تجربتك في التعليقات!\n\n📥 احصل على محتوى حصري مجاني:\n👉 https://bybilal.gumroad.com\n\n🔔 لا تنسى الاشتراك وتفعيل الجرس لتصلكفيديوهاتنا اليومية المفيدة\n\n#${allTags.join(" #")}\n\n⏱️ مدة الفيديو: ${dur} ثانية\n📅 تاريخ النشر: ${new Date().toLocaleDateString('ar-SA')}`,
-          tags: allTags,
-          categoryId: "22",
-        },
-        status: { privacyStatus: "public", selfDeclaredMadeForKids: false, publishAt: null },
-      },
-      media: { body: fs.createReadStream(video) },
-    });
+  const { hook, sentences, topic } = data;
+  const tags = ["shorts", "معلومة", "تطوير الذات", "نصائح", topic, "يوتيوب", "عربي", "shorts عربي", "ai shorts"];
+  const desc = `${hook}\n\n📌 في هذا الفيديو:\n${sentences.slice(0, 5).map((s, i) => `${i + 1}. ${s.trim()}`).join("\n")}\n\n💬 شاركنا رأيك في التعليقات! هل تطبق هذه النصيحة؟\n\n📥 منتجات رقمية مفيدة:\n👉 https://bybilal.gumroad.com\n\n🔔 اشترك وفعل الجرس ليصلك كل جديد يومياً\n\n#${tags.slice(0, 10).join(" #")}`;
 
+  const r = await google.youtube({ version: "v3", auth: o }).videos.insert({
+    part: ["snippet", "status"],
+    requestBody: {
+      snippet: { title: hook.substring(0, 90), description: desc, tags, categoryId: "22" },
+      status: { privacyStatus: "public", selfDeclaredMadeForKids: false },
+    },
+    media: { body: fs.createReadStream(videoPath) },
+  });
   console.log(`✅ رفع: https://youtube.com/shorts/${r.data.id}`);
+  return r.data.id;
 }
 
-run().catch(e => { console.error("❌", e.message); process.exit(1); });
+async function run() {
+  console.log("🎥 يوتيوب شورت الاحترافي يعمل...");
+  fs.mkdirSync(OUT, { recursive: true });
+
+  // Clean old files (>24h)
+  try {
+    const now = Date.now();
+    fs.readdirSync(OUT).forEach(f => {
+      const p = path.join(OUT, f);
+      if (fs.statSync(p).isFile() && (now - fs.statSync(p).mtimeMs) > 86400000) fs.unlinkSync(p);
+    });
+  } catch {}
+
+  const data = await generateScript();
+  const voice = textToSpeech(data.script);
+  const dur = getDuration(voice);
+  data.timings = getSentenceTimings(dur, data.sentences);
+
+  const music = createMusic(dur);
+  const mixed = mixAudio(voice, music);
+  const video = renderVideo(mixed, data);
+  await uploadToYouTube(video, data, dur);
+  console.log("✅ تم بنجاح!");
+}
+
+run().catch(e => { console.error("❌", e.message, e.stack?.split("\n").slice(0, 3).join("\n")); process.exit(1); });
